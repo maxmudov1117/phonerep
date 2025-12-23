@@ -1,4 +1,7 @@
 from django.shortcuts import get_object_or_404, render
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 
 # Create your views here.
 from rest_framework import viewsets, status
@@ -7,7 +10,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework import filters
 from rest_framework.pagination import PageNumberPagination
+from apps.documents.filters import DocumentSearchFilter
 from apps.products.models import Product
+
 
 from .models import Shop
 from .serializers import ShopSerializer
@@ -33,7 +38,7 @@ class ShopViewSet(viewsets.ModelViewSet):
       POST   /api/shops/{pk}/remove_admin/ -> custom action to remove admin(s)
     """
 
-    queryset = Shop.objects.all().prefetch_related("admins")
+    queryset = Shop.actives.all().prefetch_related("admins")
     serializer_class = ShopSerializer
     permission_classes = (IsShopOwnerOrAdminOrReadOnly,)
     # filter_backends = (DjangoFilterBackend,
@@ -63,7 +68,7 @@ class ShopViewSet(viewsets.ModelViewSet):
         # bulk add: ignore invalid ids
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        users = User.objects.filter(pk__in=user_ids)
+        users = User.actives.filter(pk__in=user_ids)
         if not users:
             return Response({"detail": "No valid users found to add."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -84,7 +89,7 @@ class ShopViewSet(viewsets.ModelViewSet):
 
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        users = User.objects.filter(pk__in=user_ids)
+        users = User.actives.filter(pk__in=user_ids)
         if not users:
             return Response({"detail": "No valid users found to remove."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -104,7 +109,7 @@ class ShopViewSet(viewsets.ModelViewSet):
         # enforce object permission — reuse your permission logic
         self.check_object_permissions(request, shop)
 
-        qs = Product.objects.filter(shop=shop).select_related(
+        qs = Product.actives.filter(shop=shop).select_related(
             "company").prefetch_related("variants")
 
         # optional: allow filtering via query params
@@ -123,6 +128,41 @@ class ShopViewSet(viewsets.ModelViewSet):
             page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="created_at_after",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Filter documents created FROM this date (YYYY-MM-DD)",
+            ),
+            OpenApiParameter(
+                name="created_at_before",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Filter documents created UNTIL this date (YYYY-MM-DD)",
+            ),
+            OpenApiParameter(
+                name="doc_type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Document type (case-insensitive)",
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number",
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Items per page",
+            ),
+        ],
+        description="List shop documents with date range, document type filtering and pagination",
+    )
     @action(detail=True, methods=["get"],  permission_classes=[AllowAny])
     def documents(self, request, pk=None):
         from apps.documents.serializers import DocumentSerializer
@@ -132,13 +172,15 @@ class ShopViewSet(viewsets.ModelViewSet):
         """
 
         shop = get_object_or_404(Shop, pk=pk)
-        documents = shop.documents.all().select_related("created_by")
+        documents = shop.documents.order_by(
+            "-created_at").all().select_related("created_by")
+        queryset = DocumentSearchFilter(
+            request.GET, documents,).qs
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(queryset, request)
         serializer = DocumentSerializer(
-            documents, many=True,
-            context={"request": request}
-        )
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
     @action(detail=True, methods=["get"],  permission_classes=[AllowAny])
     def providers(self, request, pk=None):

@@ -1,13 +1,22 @@
-from apps.documents.models import BalanceItem
+from apps.documents.models import BalanceItem, Imei
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
+
+from apps.providers.serializers import ProviderSerializer
+
+
+class ImeiSerializer(ModelSerializer):
+    class Meta:
+        model = Imei
+        exclude = ('deleted_at',)
 
 
 class VariantSerializerForBalance(ModelSerializer):
+
     product = SerializerMethodField()
 
     class Meta:
         model = BalanceItem.variant.field.related_model
-        fields = "__all__"
+        exclude = ('deleted_at',)
 
     def get_product(self, obj):
         return {
@@ -20,21 +29,17 @@ class VariantSerializerForBalance(ModelSerializer):
 class BalanceItemSerializer(ModelSerializer):
     variant = SerializerMethodField()
     product = SerializerMethodField()
-    imeies = SerializerMethodField()
+    imeis = ImeiSerializer(read_only=True, many=True)
+    provider = ProviderSerializer(read_only=True)
 
     class Meta:
         model = BalanceItem
-        fields = "__all__"
+        exclude = ('deleted_at',)
 
     def get_variant(self, obj):
         return VariantSerializerForBalance(obj.variant).data
 
-    def get_imeies(self, obj):
-        imeies = obj.variant.imeis.all()
-        return [{"id": imei.id, "imei_code": imei.imei_code} for imei in imeies]
-
     def get_product(self, obj):
-
         product = obj.variant.product
         return {
             "id": product.id,

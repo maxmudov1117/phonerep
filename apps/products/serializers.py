@@ -10,7 +10,14 @@ from .models import Product, Variant
 class VariantCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Variant
-        fields = ("ram", "storage", "history_status")
+        fields = ("ram", "storage", "product")
+
+    def create(self, validated_data):
+        product = validated_data['product']
+        variant = Variant.objects.create(
+            product=product, ram=validated_data['ram'], storage=validated_data['storage']
+        )
+        return variant
 
 
 class ProductCreateSerializer(serializers.ModelSerializer):
@@ -46,19 +53,18 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         company = validated_data["company"]
         title = validated_data["title"]
 
-        product_qs = Product.objects.filter(
+        product_qs = Product.actives.filter(
             shop=shop, company=company, title__iexact=title)
         product = product_qs.first()
 
         if product is None:
             # product doesn't exist -> create it and all variants
-            product = Product.objects.create(**validated_data)
+            product = Product.actives.create(**validated_data)
             for v in variants_data:
-                Variant.objects.get_or_create(
+                Variant.actives.get_or_create(
                     product=product,
                     ram=v["ram"],
                     storage=v["storage"],
-                    defaults={"history_status": v.get("history_status", "")}
                 )
             self._created = True
             return product
@@ -68,11 +74,10 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         created_any_variant = False
 
         for v in variants_data:
-            _, created = Variant.objects.get_or_create(
+            _, created = Variant.actives.get_or_create(
                 product=product,
                 ram=v["ram"],
                 storage=v["storage"],
-                defaults={"history_status": v.get("history_status", "")}
             )
             if created:
                 created_any_variant = True
@@ -93,7 +98,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 class VariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Variant
-        fields = ("id", "ram", "storage", "history_status")
+        fields = ("id", "ram", "storage",)
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -118,7 +123,7 @@ class VariantSerializerWithProduct(serializers.ModelSerializer):
 
     class Meta:
         model = Variant
-        fields = ("id", "ram", "storage", "history_status", "product")
+        fields = ("id", "ram", "storage", "product")
 
     def get_product(self, obj):
         product = obj.product

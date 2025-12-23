@@ -11,8 +11,8 @@ class BaseModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
-    objects = SoftDeleteManager()
-    all_objects = models.Manager()
+    actives = SoftDeleteManager()
+    objects = models.Manager()
 
     def delete(self, using=None, keep_parents=False):
         """Soft delete by default"""

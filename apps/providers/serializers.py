@@ -28,6 +28,11 @@ class CreateProviderSerializer(serializers.Serializer):
 
 
 class ProviderSerializer(serializers.ModelSerializer):
+    shop_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Provider
         fields = "__all__"
+
+    def get_shop_name(self, provider: Provider):
+        return provider.shop.name

@@ -5,7 +5,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from rest_framework.permissions import AllowAny
 from .models import Product, Variant
-from .serializers import ProductSerializer, ProductCreateSerializer, VariantSerializer, VariantSerializerWithProduct
+from .serializers import ProductSerializer, ProductCreateSerializer, VariantSerializer, VariantSerializerWithProduct, VariantCreateSerializer
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -16,7 +16,7 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 class ProductViewSet(viewsets.ModelViewSet):
 
-    queryset = Product.objects.select_related(
+    queryset = Product.actives.select_related(
         "company", "shop").prefetch_related("variants").all()
     permission_classes = [AllowAny,]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -71,6 +71,11 @@ class VariantViewSet(viewsets.ModelViewSet):
     serializer_class = VariantSerializerWithProduct
     permission_classes = [AllowAny,]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["history_status", "product__title"]
-    ordering_fields = ["id", "history_status"]
+    search_fields = ["product__title"]
+    ordering_fields = ["id",]
     ordering = ["-id"]
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return VariantCreateSerializer
+        return VariantSerializerWithProduct

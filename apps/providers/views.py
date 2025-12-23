@@ -5,7 +5,7 @@ from .serializers import ProviderSerializer, CreateProviderSerializer
 
 
 class ProviderViewSet(ModelViewSet):
-    queryset = Provider.objects.all()
+    queryset = Provider.actives.all()
     permission_classes = (IsAuthenticated,)
 
     # def get_serializer_class(self):

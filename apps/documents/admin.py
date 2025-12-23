@@ -1,7 +1,7 @@
 
 from django.contrib import admin
 from django.db.models import Sum
-from .models import Document, DocumentItem, BalanceItem
+from .models import Document, DocumentItem, BalanceItem, Imei
 
 
 class DocumentItemInline(admin.TabularInline):
@@ -9,7 +9,6 @@ class DocumentItemInline(admin.TabularInline):
     extra = 0
     fields = (
         "variant",
-        "qty",
         "currency",
         "currency_rate",
         "income_price",
@@ -23,7 +22,6 @@ class BalanceItemInline(admin.TabularInline):
     extra = 0
     fields = (
         "variant",
-        "qty",
         "currency",
         "currency_rate",
         "income_price",
@@ -39,32 +37,20 @@ class DocumentAdmin(admin.ModelAdmin):
         "shop",
         "doc_type",
         "items_count",
-        "total_qty",
+
     )
     list_filter = ("doc_type", "shop")
     search_fields = ("id", "shop__name")
     inlines = (DocumentItemInline, BalanceItemInline)
     ordering = ("-id",)
-    readonly_fields = ("items_count", "total_qty")
+    readonly_fields = ("items_count", )
 
     def items_count(self, obj):
         """Count of related DocumentItem + BalanceItem rows."""
-        doc_items = DocumentItem.objects.filter(document=obj).count()
-        bal_items = BalanceItem.objects.filter(document=obj).count()
+        doc_items = DocumentItem.actives.filter(document=obj).count()
+        bal_items = BalanceItem.actives.filter(document=obj).count()
         return doc_items + bal_items
     items_count.short_description = "Items"
-
-    def total_qty(self, obj):
-        """
-        Sum qty across related DocumentItem and BalanceItem.
-        Returns Decimal or None -> show 0 if None.
-        """
-        doc_sum = DocumentItem.objects.filter(
-            document=obj).aggregate(total=Sum("qty"))["total"] or 0
-        bal_sum = BalanceItem.objects.filter(
-            document=obj).aggregate(total=Sum("qty"))["total"] or 0
-        return doc_sum + bal_sum
-    total_qty.short_description = "Total qty"
 
 
 @admin.register(DocumentItem)
@@ -73,16 +59,17 @@ class DocumentItemAdmin(admin.ModelAdmin):
         "id",
         "document",
         "variant",
-        "qty",
+
         "currency",
         "currency_rate",
         "income_price",
         "outcome_price",
+        "provider"
     )
     list_filter = ("currency", "document__shop")
-    search_fields = ("id", "variant__id", "document__id")
+    search_fields = ("id", "variant__id", "document__id", "provider__name")
     ordering = ("-id",)
-    list_editable = ("qty", "income_price", "outcome_price")
+    list_editable = ("income_price", "outcome_price")
 
 
 @admin.register(BalanceItem)
@@ -91,13 +78,21 @@ class BalanceItemAdmin(admin.ModelAdmin):
         "id",
         "document",
         "variant",
-        "qty",
+
         "currency",
         "currency_rate",
         "income_price",
         "outcome_price",
+        "provider"
     )
     list_filter = ("currency", "document__shop")
-    search_fields = ("id", "variant__id", "document__id")
+    search_fields = ("id", "variant__id", "document__id",   "provider__name")
     ordering = ("-id",)
-    list_editable = ("qty", "income_price", "outcome_price")
+    list_editable = ("income_price", "outcome_price")
+
+
+@admin.register(Imei)
+class ImeiAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "imei_code", "is_activated"
+    )

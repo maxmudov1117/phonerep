@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib import admin
 from django.db.models import Count
 
-from .models import Product, Company, Variant, Imei
+from .models import Product, Company, Variant
 
 
 class VariantInline(admin.TabularInline):
@@ -18,6 +18,7 @@ class VariantInline(admin.TabularInline):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "title",
         "company",
         "shop",
@@ -57,13 +58,6 @@ class VariantAdmin(admin.ModelAdmin):
     list_filter = ("ram", "storage")
     raw_id_fields = ("product",)
     ordering = ("product__title", "ram", "storage")
-
-
-@admin.register(Imei)
-class ImeiAdmin(admin.ModelAdmin):
-    list_display = (
-        "id", "imei_code", "is_activated", "variant", "created_by"
-    )
 
 
 @admin.register(Company)
