@@ -19,7 +19,7 @@ class StandardResultsSetPagination(PageNumberPagination):
 class StoreBaseView(GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = BalanceItemSerializer
-    queryset = BalanceItem.actives.all()
+    queryset = BalanceItem.actives.order_by("-created_at").all()
     pagination_class = StandardResultsSetPagination
     filter_backends = [SearchFilter]
     search_fields = [
@@ -82,3 +82,25 @@ class StoreListView(StoreBaseView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+
+class DeleteStoreItemView(StoreBaseView):
+    def delete(self, request, *args, **kwargs):
+        item_id = kwargs.get("pk")
+        try:
+            item_balance = self.get_queryset().get(id=item_id)
+            document_item = item_balance.document_item
+            item_balance.soft_delete()
+            if document_item:
+                document_item.soft_delete()
+            print(f"Deleted store item with id: {item_id}")
+
+            document = document_item.document
+            if document and not document.document_items.filter(deleted_at=None).exists():
+                document.soft_delete()
+                print(
+                    f"Also deleted associated document with id: {document.id}")
+
+            return Response({"detail": "Item deleted successfully."}, status=204)
+        except BalanceItem.DoesNotExist:
+            return Response({"detail": "Item not found."}, status=404)
