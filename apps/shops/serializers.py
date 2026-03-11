@@ -36,20 +36,14 @@ class ShopSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_by", "admins_info")
 
     def create(self, validated_data):
-        admins = validated_data.pop("admins", [])
-        created_by = validated_data.pop("created_by", None)
 
         request = self.context.get("request")
-        if created_by is None and request is not None:
-            created_by = request.user
 
-        shop = Shop.objects.create(created_by=created_by, **validated_data)
-
-        if admins:
-            shop.admins.set(admins)
-        else:
-            if created_by is not None:
-                shop.admins.add(created_by)
+        created_by = request.user
+        shop = Shop.objects.create(created_by=created_by, name=validated_data.get(
+            "name"), address=validated_data.get("address"))
+        shop.admins.add(created_by)
+        shop.members.add(created_by)
 
         return shop
 

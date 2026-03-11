@@ -116,7 +116,7 @@ SIMPLE_JWT = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "My CRM API",
+    "TITLE": "ManagePhone CRM API",
     "DESCRIPTION": "API for shops/products/variants",
     "VERSION": "v1",
     # keep false in prod if you want to prevent schema auto-serve

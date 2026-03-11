@@ -12,6 +12,8 @@ from rest_framework import filters
 from rest_framework.pagination import PageNumberPagination
 from apps.documents.filters import DocumentSearchFilter
 from apps.products.models import Product
+from apps.users.serializers import UserSerializer
+from apps.users.models import User
 
 
 from .models import Shop
@@ -59,22 +61,23 @@ class ShopViewSet(viewsets.ModelViewSet):
         Add one or multiple users to shop.admins.
         Payload: {"admins": [user_id1, user_id2]}
         """
+
         shop = self.get_object()
         # permission checked by object permission
-        user_ids = request.data.get("admins", [])
-        if not isinstance(user_ids, (list, tuple)):
-            return Response({"detail": "admins must be a list of user ids."}, status=status.HTTP_400_BAD_REQUEST)
+        user_id = request.data.get("user", -1)
+        if not user_id:
+            return Response({"detail": "No user to make admin"}, status=status.HTTP_400_BAD_REQUEST)
 
         # bulk add: ignore invalid ids
         from django.contrib.auth import get_user_model
-        User = get_user_model()
-        users = User.actives.filter(pk__in=user_ids)
-        if not users:
+
+        user = User.actives.filter(pk=user_id).first()
+        if not user:
             return Response({"detail": "No valid users found to add."}, status=status.HTTP_400_BAD_REQUEST)
 
-        shop.admins.add(*users)
+        shop.admins.add(user)
         shop.save()
-        return Response({"detail": f"Added {users.count()} admin(s)."}, status=status.HTTP_200_OK)
+        return Response({"detail": f"Added {user.full_name}"}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="remove_admin", permission_classes=[IsShopOwnerOrAdminOrReadOnly])
     def remove_admin(self, request, pk=None):
@@ -197,4 +200,77 @@ class ShopViewSet(viewsets.ModelViewSet):
             context={"request": request}
         )
 
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"],  permission_classes=[AllowAny])
+    def admins(self, request, pk=None):
+        """
+        GET /api/shops/{pk}/admins/
+        Returns admins for the shop. 
+        """
+
+        shop = get_object_or_404(Shop, pk=pk)
+        admins = shop.admins.all()
+        serializer = UserSerializer(
+            admins, many=True,
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"],  permission_classes=[AllowAny])
+    def members(self, request, pk=None):
+        """
+        GET /api/shops/{pk}/members/
+        Returns all members (admins + created_by) for the shop. 
+        """
+
+        shop = get_object_or_404(Shop, pk=pk)
+        admins = shop.members.all()
+        members = list(admins)
+        if shop.created_by not in members:
+            members.append(shop.created_by)
+        serializer = UserSerializer(
+            members, many=True,
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], permission_classes=[AllowAny])
+    def join(self, request):
+        try:
+            """
+            GET /api/shops/join/
+            Join a shop via invite code.
+            """
+            code = request.query_params.get("shop_id", "").strip()
+            if not code:
+                return Response({"detail": "Invite code is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            shop = get_object_or_404(Shop, pk=code)
+            is_member = shop.members.filter(pk=request.user.pk).exists()
+            if is_member:
+                return Response({
+                    "detail": f"You are already a member of the shop '{shop.name}'."
+                }, status=status.HTTP_200_OK
+                )
+            shop.members.add(request.user)
+            shop.save()
+            return Response({
+                "detail": f"You have successfully joined the shop '{shop.name}'."
+            }, status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            print(f"[-] Error in joining shop: {e}")
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=["get"], url_path='my-shops', url_name='my-shops', permission_classes=[IsAuthenticatedOrReadOnly])
+    def my_shops(self, request):
+        """
+        GET /api/shops/my-shops/
+        Returns shops where the requester is a member.
+        """
+        shops = Shop.actives.filter(
+            admins=request.user).prefetch_related("admins")
+        serializer = ShopSerializer(
+            shops, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)

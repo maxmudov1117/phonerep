@@ -23,6 +23,8 @@ class VariantSerializerForBalance(ModelSerializer):
             "id": obj.product.id,
             "title": obj.product.title,
             "description": obj.product.description,
+
+
         }
 
 
@@ -45,4 +47,5 @@ class BalanceItemSerializer(ModelSerializer):
             "id": product.id,
             "title": product.title,
             "description": product.description,
+            "company": product.company.name,
         }

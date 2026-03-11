@@ -1,9 +1,6 @@
 from django.db import models
 from django.utils import timezone
-
 from apps.base.managers import SoftDeleteManager
-
-# Create your models here.
 
 
 class BaseModel(models.Model):

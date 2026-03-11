@@ -5,7 +5,9 @@ from rest_framework.pagination import PageNumberPagination
 
 from rest_framework.permissions import AllowAny
 from .models import Product, Variant
-from .serializers import ProductSerializer, ProductCreateSerializer, VariantSerializer, VariantSerializerWithProduct, VariantCreateSerializer
+from .serializers import (
+    ProductSerializer, VariantSerializerWithProduct, VariantCreateSerializer, PhoneCreateSerializer
+)
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -37,7 +39,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action in ("create", "update", "partial_update"):
-            return ProductCreateSerializer
+            return PhoneCreateSerializer
         return ProductSerializer
 
     def create(self, request, *args, **kwargs):

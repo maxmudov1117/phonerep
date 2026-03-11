@@ -87,7 +87,7 @@ class BalanceItem(BaseDocumentItem):
         "documents.Document", on_delete=models.CASCADE, related_name="balances"
     )
     document_item = models.OneToOneField(
-        DocumentItem, on_delete=models.CASCADE, verbose_name="Document Item", blank=True, null=True
+        DocumentItem, on_delete=models.CASCADE, verbose_name="Document Item", blank=True, null=True,
     )
 
 

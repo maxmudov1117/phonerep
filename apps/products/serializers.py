@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.db import transaction
 from rest_framework import serializers
+
+from apps.shops.models import Shop
 from .models import Product, Company, Variant
 from rest_framework import serializers
 from django.db import transaction
@@ -91,6 +93,57 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         # Attach a flag so viewset knows whether any variant was added.
         # (serializer._created already indicates product creation; store variant flag separately)
         self._added_variants = created_any_variant
+
+        return product
+
+
+class PhoneCreateSerializer(serializers.Serializer):
+    shop = serializers.PrimaryKeyRelatedField(queryset=Shop.actives.all())
+    company = serializers.CharField(max_length=250)
+    model = serializers.CharField(max_length=255)
+    ram = serializers.IntegerField()
+    storages = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False
+    )
+
+    def validate_storages(self, value):
+        if len(set(value)) != len(value):
+            raise serializers.ValidationError(
+                "Duplicate storage values are not allowed.")
+        return value
+
+    @transaction.atomic
+    def create(self, validated_data):
+        shop = validated_data["shop"]
+        company_name = validated_data["company"]
+        title = validated_data["model"]
+        ram = validated_data["ram"]
+        storages = validated_data["storages"]
+
+        # 1️⃣ Company
+        company, _ = Company.objects.get_or_create(
+            name__iexact=company_name,
+            defaults={"name": company_name},
+        )
+
+        # 2️⃣ Product (idempotent)
+        product, _ = Product.objects.get_or_create(
+            shop=shop,
+            company=company,
+            title__iexact=title,
+            defaults={"title": title},
+        )
+
+        # 3️⃣ Variants
+        variants = []
+        for storage in storages:
+            variant, _ = Variant.objects.get_or_create(
+                product=product,
+                ram=ram,
+                storage=storage,
+            )
+            variants.append(variant)
 
         return product
 

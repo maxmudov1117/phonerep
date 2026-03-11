@@ -22,7 +22,16 @@ class Shop(BaseModel):
         settings.AUTH_USER_MODEL,
         related_name="managed_shops",
         blank=True,
+
         help_text="Users who can manage this shop (in addition to the creator)."
+    )
+
+    members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="member_shops",
+        blank=True,
+
+        help_text="Users who are members of this shop."
     )
 
     def __str__(self):
